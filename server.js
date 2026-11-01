@@ -7,6 +7,22 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 
+// 1. ADICIONADO: Permitir CORS para o painel da Fabi aceder sem bloqueios do navegador
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
+
+// 2. ADICIONADO: Rota de boas-vindas para evitar erros 404 na raiz
+app.get('/', (req, res) => {
+    res.json({ status: 'Online', servico: 'Achadinhos Extrator Vercel' });
+});
+
 // Inicializa a IA usando a variável de ambiente configurada
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
