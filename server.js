@@ -1,11 +1,13 @@
 const express = require('express');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 const { GoogleGenAI } = require('@google/genai');
+require('dotenv').config();
 
 const app = express();
 app.use(express.json());
 
-// Inicializa a IA usando a variável de ambiente configurada no Fly.io
+// Inicializa a IA usando a variável de ambiente configurada
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 app.post('/api/processar-achadinho', async (req, res) => {
@@ -19,17 +21,21 @@ app.post('/api/processar-achadinho', async (req, res) => {
     let precoProduto = precoEstimado || '0.00';
 
     try {
-        // 1. Tenta extrair os dados reais usando o Puppeteer em segundo plano
+        // Configuração do Puppeteer otimizada para o ambiente Serverless do Vercel
+        const executablePath = await chromium.executablePath();
+        
         browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: executablePath,
+            headless: chromium.headless,
         });
 
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
         console.log(`Acessando link para extração: ${url}`);
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 25000 });
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
 
         const dadosExtraidos = await page.evaluate(() => {
             const tituloElement = document.querySelector('h1') || document.querySelector('meta[property="og:title"]');
@@ -50,7 +56,7 @@ app.post('/api/processar-achadinho', async (req, res) => {
         await browser.close();
     } catch (err) {
         if (browser) await browser.close();
-        console.log('Aviso: Extração via Puppeteer pulada ou bloqueada, prosseguindo com dados base.');
+        console.log('Aviso: Extração via Puppeteer pulada ou bloqueada, prosseguindo com dados base:', err.message);
     }
 
     // 2. Gera a Copy Comercial Profissional com a IA do Gemini
@@ -87,7 +93,13 @@ app.post('/api/processar-achadinho', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Servidor rodando na porta ${PORT}`);
-});
+// Execução local para testes no PC
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 8080;
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Extrator rodando na porta ${PORT}`);
+    });
+}
+
+// Essencial para o Vercel gerir a função serverless
+module.exports = app;
