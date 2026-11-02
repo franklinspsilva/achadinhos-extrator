@@ -4,7 +4,7 @@ const chromium = require('@sparticuz/chromium');
 const { GoogleGenAI } = require('@google/genai');
 require('dotenv').config();
 
-const app = express();const express = require('express');
+const express = require('express');
 const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
 const { GoogleGenAI } = require('@google/genai');
