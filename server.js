@@ -1,5 +1,4 @@
 const express = require('express');
-const { GoogleGenAI } = require('@google/genai');
 require('dotenv').config();
 
 const app = express();
@@ -20,9 +19,6 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
     res.json({ status: 'Online', servico: 'Achadinhos Extrator Vercel' });
 });
-
-// Inicializa a IA
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 app.post('/api/processar-achadinho', async (req, res) => {
     const { url, plataforma, precoEstimado, tituloManual, comissao_estimada, link_afiliado } = req.body;
@@ -67,13 +63,26 @@ app.post('/api/processar-achadinho', async (req, res) => {
         
         Mantenha a linguagem leve, amigável e vendedora.`;
 
-        // Chamada direta utilizando o modelo padrão ativo na v1
-        const response = await ai.models.generateContent({
-            model: 'gemini-1.5-flash',
-            contents: prompt,
+        const apiKey = process.env.GEMINI_API_KEY;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+        const aiResponse = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{ text: prompt }]
+                }]
+            })
         });
 
-        const copyGerada = response.text || '🔥 Achado imperdível! Confira no link.';
+        const aiData = await aiResponse.json();
+
+        if (!aiResponse.ok) {
+            throw new Error(aiData.error?.message || 'Erro desconhecido na API do Gemini');
+        }
+
+        const copyGerada = aiData.candidates?.[0]?.content?.parts?.[0]?.text || '🔥 Achado imperdível! Confira no link.';
 
         return res.json({
             success: true,
