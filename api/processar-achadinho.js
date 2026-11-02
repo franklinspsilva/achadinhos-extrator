@@ -136,4 +136,4 @@ ${hashtagsDinomicas || hashtagsDinamicas}`
     } async (erroServer) {
         return res.status(500).json({ error: `Erro interno: ${erroServer.message}` });
     }
-};
+}; 
