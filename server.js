@@ -89,11 +89,10 @@ app.post('/api/processar-achadinho', async (req, res) => {
         4. Chamada para ação forte (CTA) convidando para garantir no link.
         Mantenha a linguagem leve, amigável e vendedora.`;
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: prompt,
-        });
-
+const response = await ai.models.generateContent({
+    model: 'gemini-3.8-flash',
+    contents: [...]
+});
         const copyGerada = response.text;
 
         return res.json({
