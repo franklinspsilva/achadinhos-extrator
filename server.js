@@ -91,7 +91,12 @@ app.post('/api/processar-achadinho', async (req, res) => {
 
 const response = await ai.models.generateContent({
     model: 'gemini-3.8-flash',
-    contents: [...]
+    contents: [
+        {
+            role: 'user',
+            parts: [{ text: suaVariavelComPrompt }]
+        }
+    ]
 });
         const copyGerada = response.text;
 
