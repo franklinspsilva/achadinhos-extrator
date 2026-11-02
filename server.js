@@ -34,7 +34,7 @@ app.post('/api/processar-achadinho', async (req, res) => {
     let precoProduto = precoEstimado || '0.00';
     let linkFinal = link_afiliado || url;
 
-    // Resolvedor de links leve e nativo (segue o redirecionamento sem Puppeteer)
+    // Resolvedor de links leve e nativo
     if (url && (url.includes('s.shopee.com.br') || url.includes('mercadolivre.com/sec'))) {
         try {
             const responseFetch = await fetch(url, { 
@@ -50,7 +50,6 @@ app.post('/api/processar-achadinho', async (req, res) => {
 
     if (tituloManual) tituloProduto = tituloManual;
 
-    // Gera a Copy Comercial Profissional com a IA do Gemini
     try {
         const prompt = `Crie uma copy comercial vendedora e cativante para redes sociais (Instagram/WhatsApp/Telegram) para o seguinte produto de achados de afiliado:
         - Produto: ${tituloProduto}
@@ -68,17 +67,13 @@ app.post('/api/processar-achadinho', async (req, res) => {
         
         Mantenha a linguagem leve, amigável e vendedora.`;
 
+        // Chamada direta utilizando o modelo padrão ativo na v1
         const response = await ai.models.generateContent({
             model: 'gemini-1.5-flash',
-            contents: [
-                {
-                    role: 'user',
-                    parts: [{ text: prompt }]
-                }
-            ]
+            contents: prompt,
         });
 
-        const copyGerada = response.text;
+        const copyGerada = response.text || '🔥 Achado imperdível! Confira no link.';
 
         return res.json({
             success: true,
