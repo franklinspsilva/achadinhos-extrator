@@ -17,7 +17,7 @@ app.use((req, res, next) => {
 
 // Rota de boas-vindas
 app.get('/', (req, res) => {
-    res.json({ status: 'Online', servico: 'Achadinhos Extrator Vercel (Com Extração Leve)' });
+    res.json({ status: 'Online', servico: 'Achadinhos Extrator Vercel (Auto-Extração)' });
 });
 
 app.post('/api/processar-achadinho', async (req, res) => {
@@ -31,48 +31,64 @@ app.post('/api/processar-achadinho', async (req, res) => {
         let precoProduto = precoEstimado || '0.00';
         let linkFinal = link_afiliado || url;
 
-        // 1. Extração Leve de Metadados via HTML (Sem Puppeteer)
+        // 1. Automação de Expansão e Extração Inteligente
         try {
             const responseFetch = await fetch(url, { 
                 method: 'GET', 
                 redirect: 'follow',
                 headers: { 
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
+                    // Simulamos um bot de rede social (WhatsApp/Telegram), o que força Shopee e Meli a entregarem o HTML limpo com o título e dados do produto
+                    'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)' 
                 }
             });
             
             linkFinal = responseFetch.url || linkFinal;
             const htmlText = await responseFetch.text();
 
-            // Se o usuário não digitou o título manualmente, tenta extrair da tag og:title ou <title>
+            // Extração automática do Título pelas tags Open Graph
             if (!tituloProduto) {
                 const matchOgTitle = htmlText.match(/<meta[^>]*property="og:title"[^>]*content="([^"]*)"[^>]*>/i) || 
-                                     htmlText.match(/<meta[^>]*name="og:title"[^>]*content="([^"]*)"[^>]*>/i);
+                                     htmlText.match(/<meta[^>]*name="og:title"[^>]*content="([^"]*)"[^>]*>/i) ||
+                                     htmlText.match(/<meta[^>]*name="twitter:title"[^>]*content="([^"]*)"[^>]*>/i);
                 
                 if (matchOgTitle && matchOgTitle[1]) {
                     tituloProduto = matchOgTitle[1].trim();
+                    // Limpeza de sufixos comuns da Shopee/Meli no título
+                    tituloProduto = tituloProduto.replace(/\| Shopee Brasil/gi, '').replace(/Mercado Livre/gi, '').trim();
                 } else {
                     const matchTitleTag = htmlText.match(/<title>([^<]*)<\/title>/i);
                     if (matchTitleTag && matchTitleTag[1]) {
-                        tituloProduto = matchTitleTag[1].trim();
+                        tituloProduto = matchTitleTag[1].replace(/\| Shopee Brasil/gi, '').trim();
                     }
                 }
             }
+
+            // Tentativa de extração automática de preço se estiver presente nas meta tags
+            if (!precoProduto || precoProduto === '0.00') {
+                const matchPrice = htmlText.match(/content="R\$ ([^"]*)"/i) || htmlText.match(/R\$\s*([\d.,]+)/);
+                if (matchPrice && matchPrice[1]) {
+                    precoProduto = matchPrice[1].trim();
+                }
+            }
+
         } catch (errExt) {
-            console.log('Aviso: Extração leve por HTML limitada, usando dados base/manuais.');
+            console.log('Aviso na extração automática, usando fallback.');
         }
 
-        // Fallback caso não consiga extrair nada do link
+        // Se após a automação ainda estiver vazio, aplicamos um título descritivo baseado na URL
         if (!tituloProduto) {
-            tituloProduto = tituloManual || 'Achadinho Imperdível para o Lar';
+            tituloProduto = tituloManual || (url.includes('mercadolivre') ? 'Achado Imperdível no Mercado Livre' : 'Achadinho Imperdível na Shopee');
         }
 
-        const plataformaNome = plataforma || 'Shopee';
-        const hashtagsDinamicas = `#achadinhos #${plataformaNome.toLowerCase()} #ofertas #achadosdodia #promocao #achados`;
+        if (!precoProduto) {
+            precoProduto = '0.00';
+        }
 
-        // 2. Sistema de Variação de Layouts (5 Estilos diferentes)
+        const plataformaNome = plataforma || (url.includes('mercadolivre') ? 'Mercado Livre' : 'Shopee');
+        const hashtagsDinamicas = `#achadinhos #${plataformaNome.toLowerCase().replace(/\s+/g, '')} #ofertas #achadosdodia #promocao #achados`;
+
+        // 2. Sistema de Rotação de 5 Estilos Dinâmicos
         const modelosDeCopy = [
-            // Estilo 1: Foco em Utilidade e Praticidade
             `✨ Olha só o que acabou de aparecer por aqui! 
             
 O item **${tituloProduto}** é daqueles que facilitam demais a rotina em casa. Quem tem, recomenda! 🏡💛
@@ -84,7 +100,6 @@ Corre para garantir o seu antes que esgote:
 
 ${hashtagsDinamicas}`,
 
-            // Estilo 2: Foco em Urgência e Preço Baixo
             `🚨 **ACHADO IMPERDÍVEL!** 🚨
 
 Achamos o **${tituloProduto}** com um preço excelente na ${plataformaNome}! 📉
@@ -96,7 +111,6 @@ As unidades costumam acabar muito rápido, então não deixe para depois:
 
 ${hashtagsDinamicas}`,
 
-            // Estilo 3: Foco em Desejo e Organização
             `😍 Deixar a casa organizada e prática ficou muito mais fácil com o **${tituloProduto}**! 
 
 Encontrei essa super dica na ${plataformaNome} por um valor que cabe no bolso:
@@ -108,7 +122,6 @@ ${linkFinal}
 
 ${hashtagsDinamicas}`,
 
-            // Estilo 4: Foco em "Achado Secreto / Dica de Ouro"
             `🤫 **Dica de ouro que eu achei para vocês!** 
 
 Gente, olha que achado maravilhoso esse **${tituloProduto}**! Encontrei escondido na ${plataformaNome} por um preço super especial. 🌟
@@ -121,7 +134,6 @@ Corre antes que acabe o estoque:
 
 ${hashtagsDinamicas}`,
 
-            // Estilo 5: Foco em Interação / Pergunta
             `🤔 Quem aí estava à procura de um desses? 
 
 O **${tituloProduto}** apareceu com desconto na ${plataformaNome} e eu não podia deixar de trazer para vocês! 😱
@@ -134,7 +146,6 @@ Quem vai querer aproveitar? Deixa eu saber nos comentários ou garante o seu dir
 ${hashtagsDinamicas}`
         ];
 
-        // Sorteia aleatoriamente um dos 5 modelos
         const indiceAleatorio = Math.floor(Math.random() * modelosDeCopy.length);
         const copyGerada = modelosDeCopy[indiceAleatorio];
 
