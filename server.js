@@ -7,7 +7,7 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 
-// 1. ADICIONADO: Permitir CORS para o painel da Fabi aceder sem bloqueios do navegador
+// 1. Permitir CORS para o painel da Fabi aceder sem bloqueios do navegador
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -18,7 +18,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// 2. ADICIONADO: Rota de boas-vindas para evitar erros 404 na raiz
+// 2. Rota de boas-vindas para evitar erros 404 na raiz
 app.get('/', (req, res) => {
     res.json({ status: 'Online', servico: 'Achadinhos Extrator Vercel' });
 });
@@ -27,14 +27,15 @@ app.get('/', (req, res) => {
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 app.post('/api/processar-achadinho', async (req, res) => {
-    const { url, plataforma, precoEstimado } = req.body;
+    const { url, plataforma, precoEstimado, tituloManual, comissao_estimada, link_afiliado } = req.body;
     if (!url) {
         return res.status(400).json({ error: 'Nenhuma URL informada.' });
     }
 
     let browser;
-    let tituloProduto = 'Achadinho Imperdível';
+    let tituloProduto = tituloManual || 'Achadinho Imperdível';
     let precoProduto = precoEstimado || '0.00';
+    let linkFinal = link_afiliado || url;
 
     try {
         // Configuração do Puppeteer otimizada para o ambiente Serverless do Vercel
@@ -75,12 +76,17 @@ app.post('/api/processar-achadinho', async (req, res) => {
         console.log('Aviso: Extração via Puppeteer pulada ou bloqueada, prosseguindo com dados base:', err.message);
     }
 
-    // 2. Gera a Copy Comercial Profissional com a IA do Gemini
+    // Se o usuário digitou um título manualmente, prioriza ele
+    if (tituloManual) tituloProduto = tituloManual;
+
+    // Gera a Copy Comercial Profissional com a IA do Gemini
     try {
         const prompt = `Crie uma copy comercial vendedora e cativante para redes sociais (Instagram/WhatsApp) para o seguinte produto de achados de afiliado:
         - Produto: ${tituloProduto}
         - Plataforma: ${plataforma || 'Shopee'}
         - Preço: R$ ${precoProduto}
+        - Comissão Estimada: R$ ${comissao_estimada || '5.00'}
+        - Link de Afiliado: ${linkFinal}
         
         A estrutura deve conter:
         1. Um título chamativo com emojis.
@@ -89,15 +95,16 @@ app.post('/api/processar-achadinho', async (req, res) => {
         4. Chamada para ação forte (CTA) convidando para garantir no link.
         Mantenha a linguagem leve, amigável e vendedora.`;
 
-const response = await ai.models.generateContent({
-    model: 'gemini-3.8-flash',
-    contents: [
-        {
-            role: 'user',
-            parts: [{ text: suaVariavelComPrompt }]
-        }
-    ]
-});
+        const response = await ai.models.generateContent({
+            model: 'gemini-3.8-flash',
+            contents: [
+                {
+                    role: 'user',
+                    parts: [{ text: prompt }]
+                }
+            ]
+        });
+
         const copyGerada = response.text;
 
         return res.json({
@@ -109,7 +116,7 @@ const response = await ai.models.generateContent({
 
     } catch (aiErr) {
         console.error('Erro ao gerar copy com IA:', aiErr);
-        return res.status(500).json({ error: 'Erro ao gerar a copy com a Inteligência Artificial.' });
+        return res.status(500).json({ error: `Erro ao gerar a copy com a IA: ${aiErr.message}` });
     }
 });
 
