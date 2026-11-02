@@ -17,7 +17,7 @@ app.use((req, res, next) => {
 
 // Rota de boas-vindas
 app.get('/', (req, res) => {
-    res.json({ status: 'Online', servico: 'Achadinhos Extrator Vercel (Modo Dinâmico)' });
+    res.json({ status: 'Online', servico: 'Achadinhos Extrator Vercel (Com Extração Leve)' });
 });
 
 app.post('/api/processar-achadinho', async (req, res) => {
@@ -27,32 +27,52 @@ app.post('/api/processar-achadinho', async (req, res) => {
             return res.status(400).json({ error: 'Nenhuma URL informada.' });
         }
 
-        let tituloProduto = tituloManual || 'Achadinho Imperdível para o Lar';
+        let tituloProduto = tituloManual || '';
         let precoProduto = precoEstimado || '0.00';
         let linkFinal = link_afiliado || url;
 
-        // Resolvedor de links leve e nativo
-        if (url && (url.includes('s.shopee.com.br') || url.includes('mercadolivre.com/sec'))) {
-            try {
-                const responseFetch = await fetch(url, { 
-                    method: 'GET', 
-                    redirect: 'follow',
-                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-                });
-                linkFinal = responseFetch.url || linkFinal;
-            } catch (errRedir) {
-                console.log('Aviso: Não foi possível expandir o link automaticamente, mantendo o original.');
+        // 1. Extração Leve de Metadados via HTML (Sem Puppeteer)
+        try {
+            const responseFetch = await fetch(url, { 
+                method: 'GET', 
+                redirect: 'follow',
+                headers: { 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
+                }
+            });
+            
+            linkFinal = responseFetch.url || linkFinal;
+            const htmlText = await responseFetch.text();
+
+            // Se o usuário não digitou o título manualmente, tenta extrair da tag og:title ou <title>
+            if (!tituloProduto) {
+                const matchOgTitle = htmlText.match(/<meta[^>]*property="og:title"[^>]*content="([^"]*)"[^>]*>/i) || 
+                                     htmlText.match(/<meta[^>]*name="og:title"[^>]*content="([^"]*)"[^>]*>/i);
+                
+                if (matchOgTitle && matchOgTitle[1]) {
+                    tituloProduto = matchOgTitle[1].trim();
+                } else {
+                    const matchTitleTag = htmlText.match(/<title>([^<]*)<\/title>/i);
+                    if (matchTitleTag && matchTitleTag[1]) {
+                        tituloProduto = matchTitleTag[1].trim();
+                    }
+                }
             }
+        } catch (errExt) {
+            console.log('Aviso: Extração leve por HTML limitada, usando dados base/manuais.');
         }
 
-        if (tituloManual) tituloProduto = tituloManual;
+        // Fallback caso não consiga extrair nada do link
+        if (!tituloProduto) {
+            tituloProduto = tituloManual || 'Achadinho Imperdível para o Lar';
+        }
 
         const plataformaNome = plataforma || 'Shopee';
         const hashtagsDinamicas = `#achadinhos #${plataformaNome.toLowerCase()} #ofertas #achadosdodia #promocao #achados`;
 
-        // === SISTEMA DE VARIAÇÃO DE LAYOUTS (5 Estilos diferentes) ===
+        // 2. Sistema de Variação de Layouts (5 Estilos diferentes)
         const modelosDeCopy = [
-            // Estilo 1: Foco em Utilidade e Praticidade (Tom Amigável)
+            // Estilo 1: Foco em Utilidade e Praticidade
             `✨ Olha só o que acabou de aparecer por aqui! 
             
 O item **${tituloProduto}** é daqueles que facilitam demais a rotina em casa. Quem tem, recomenda! 🏡💛
@@ -64,7 +84,7 @@ Corre para garantir o seu antes que esgote:
 
 ${hashtagsDinamicas}`,
 
-            // Estilo 2: Foco em Urgência e Preço Baixo (Tom Direto)
+            // Estilo 2: Foco em Urgência e Preço Baixo
             `🚨 **ACHADO IMPERDÍVEL!** 🚨
 
 Achamos o **${tituloProduto}** com um preço excelente na ${plataformaNome}! 📉
@@ -76,7 +96,7 @@ As unidades costumam acabar muito rápido, então não deixe para depois:
 
 ${hashtagsDinamicas}`,
 
-            // Estilo 3: Foco em Desejo e Organização (Tom Inspirador)
+            // Estilo 3: Foco em Desejo e Organização
             `😍 Deixar a casa organizada e prática ficou muito mais fácil com o **${tituloProduto}**! 
 
 Encontrei essa super dica na ${plataformaNome} por um valor que cabe no bolso:
@@ -101,7 +121,7 @@ Corre antes que acabe o estoque:
 
 ${hashtagsDinamicas}`,
 
-            // Estilo 5: Foco em Interação / Pergunta (Novo Estilo para engajar o público)
+            // Estilo 5: Foco em Interação / Pergunta
             `🤔 Quem aí estava à procura de um desses? 
 
 O **${tituloProduto}** apareceu com desconto na ${plataformaNome} e eu não podia deixar de trazer para vocês! 😱
@@ -114,7 +134,7 @@ Quem vai querer aproveitar? Deixa eu saber nos comentários ou garante o seu dir
 ${hashtagsDinamicas}`
         ];
 
-        // Sorteia aleatoriamente um dos 5 modelos a cada clique
+        // Sorteia aleatoriamente um dos 5 modelos
         const indiceAleatorio = Math.floor(Math.random() * modelosDeCopy.length);
         const copyGerada = modelosDeCopy[indiceAleatorio];
 
