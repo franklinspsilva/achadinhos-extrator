@@ -17,7 +17,7 @@ app.use((req, res, next) => {
 
 // Rota de boas-vindas
 app.get('/', (req, res) => {
-    res.json({ status: 'Online', servico: 'Achadinhos Extrator Vercel (Definitivo)' });
+    res.json({ status: 'Online', servico: 'Achadinhos Extrator Vercel (API Externa de Metadados)' });
 });
 
 app.post('/api/processar-achadinho', async (req, res) => {
@@ -28,30 +28,40 @@ app.post('/api/processar-achadinho', async (req, res) => {
         }
 
         let linkFinal = link_afiliado || url;
+        let tituloProduto = tituloManual || '';
+        let precoProduto = precoEstimado || '0.00';
 
-        // Tenta expandir o link encurtado nativamente
-        if (url && (url.includes('s.shopee.com.br') || url.includes('mercadolivre.com/sec'))) {
+        // Se o título não foi digitado manualmente, busca automaticamente usando a API externa gratuita do Microlink
+        if (!tituloProduto || tituloProduto.trim() === '') {
             try {
-                const responseFetch = await fetch(url, { 
-                    method: 'GET', 
-                    redirect: 'follow',
-                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-                });
-                linkFinal = responseFetch.url || linkFinal;
-            } catch (errRedir) {
-                console.log('Aviso: Não foi possível expandir o link automaticamente.');
+                // Codifica a URL para ser usada na API de metadados
+                const apiMicroLinkUrl = `https://api.microlink.io/?url=${encodeURIComponent(url)}`;
+                
+                const responseMeta = await fetch(apiMicroLinkUrl);
+                const dataMeta = await responseMeta.json();
+
+                if (dataMeta && dataMeta.status === 'success' && dataMeta.data) {
+                    if (dataMeta.data.title) {
+                        tituloProduto = dataMeta.data.title;
+                        // Limpeza de sufixos comuns das plataformas
+                        tituloProduto = tituloProduto.replace(/\| Shopee Brasil/gi, '').replace(/Mercado Livre/gi, '').trim();
+                    }
+                    if (dataMeta.data.url) {
+                        linkFinal = dataMeta.data.url;
+                    }
+                }
+            } catch (errMicro) {
+                console.log('Aviso: Falha ao consultar metadados externos, usando fallback.');
             }
         }
 
-        // Blindagem de Título: Prioriza o que foi digitado/enviado ou define um padrão limpo
-        let tituloProduto = tituloManual;
+        // Fallback final caso o título venha vazio
         if (!tituloProduto || tituloProduto.trim() === '') {
             tituloProduto = url.includes('mercadolivre') ? 'Achado Imperdível no Mercado Livre' : 'Achadinho Imperdível na Shopee';
         }
 
-        // Blindagem de Preço: Garante que usa o preço enviado pela tela do painel e nunca zero
-        let precoProduto = precoEstimado;
-        if (!precoProduto || precoProduto === '' || precoProduto === '0' || precoProduto === '0.00') {
+        // Garante que o preço da tela seja respeitado
+        if (!precoProduto || precoProduto === '' || precoProduto === '0') {
             precoProduto = '0.00';
         }
 
