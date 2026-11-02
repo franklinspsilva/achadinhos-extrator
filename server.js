@@ -17,7 +17,7 @@ app.use((req, res, next) => {
 
 // Rota de boas-vindas
 app.get('/', (req, res) => {
-    res.json({ status: 'Online', servico: 'Achadinhos Extrator Vercel (Auto-Extração)' });
+    res.json({ status: 'Online', servico: 'Achadinhos Extrator Vercel (Definitivo)' });
 });
 
 app.post('/api/processar-achadinho', async (req, res) => {
@@ -27,67 +27,38 @@ app.post('/api/processar-achadinho', async (req, res) => {
             return res.status(400).json({ error: 'Nenhuma URL informada.' });
         }
 
-        let tituloProduto = tituloManual || '';
-        let precoProduto = precoEstimado || '0.00';
         let linkFinal = link_afiliado || url;
 
-        // 1. Automação de Expansão e Extração Inteligente
-        try {
-            const responseFetch = await fetch(url, { 
-                method: 'GET', 
-                redirect: 'follow',
-                headers: { 
-                    // Simulamos um bot de rede social (WhatsApp/Telegram), o que força Shopee e Meli a entregarem o HTML limpo com o título e dados do produto
-                    'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)' 
-                }
-            });
-            
-            linkFinal = responseFetch.url || linkFinal;
-            const htmlText = await responseFetch.text();
-
-            // Extração automática do Título pelas tags Open Graph
-            if (!tituloProduto) {
-                const matchOgTitle = htmlText.match(/<meta[^>]*property="og:title"[^>]*content="([^"]*)"[^>]*>/i) || 
-                                     htmlText.match(/<meta[^>]*name="og:title"[^>]*content="([^"]*)"[^>]*>/i) ||
-                                     htmlText.match(/<meta[^>]*name="twitter:title"[^>]*content="([^"]*)"[^>]*>/i);
-                
-                if (matchOgTitle && matchOgTitle[1]) {
-                    tituloProduto = matchOgTitle[1].trim();
-                    // Limpeza de sufixos comuns da Shopee/Meli no título
-                    tituloProduto = tituloProduto.replace(/\| Shopee Brasil/gi, '').replace(/Mercado Livre/gi, '').trim();
-                } else {
-                    const matchTitleTag = htmlText.match(/<title>([^<]*)<\/title>/i);
-                    if (matchTitleTag && matchTitleTag[1]) {
-                        tituloProduto = matchTitleTag[1].replace(/\| Shopee Brasil/gi, '').trim();
-                    }
-                }
+        // Tenta expandir o link encurtado nativamente
+        if (url && (url.includes('s.shopee.com.br') || url.includes('mercadolivre.com/sec'))) {
+            try {
+                const responseFetch = await fetch(url, { 
+                    method: 'GET', 
+                    redirect: 'follow',
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+                });
+                linkFinal = responseFetch.url || linkFinal;
+            } catch (errRedir) {
+                console.log('Aviso: Não foi possível expandir o link automaticamente.');
             }
-
-            // Tentativa de extração automática de preço se estiver presente nas meta tags
-            if (!precoProduto || precoProduto === '0.00') {
-                const matchPrice = htmlText.match(/content="R\$ ([^"]*)"/i) || htmlText.match(/R\$\s*([\d.,]+)/);
-                if (matchPrice && matchPrice[1]) {
-                    precoProduto = matchPrice[1].trim();
-                }
-            }
-
-        } catch (errExt) {
-            console.log('Aviso na extração automática, usando fallback.');
         }
 
-        // Se após a automação ainda estiver vazio, aplicamos um título descritivo baseado na URL
-        if (!tituloProduto) {
-            tituloProduto = tituloManual || (url.includes('mercadolivre') ? 'Achado Imperdível no Mercado Livre' : 'Achadinho Imperdível na Shopee');
+        // Blindagem de Título: Prioriza o que foi digitado/enviado ou define um padrão limpo
+        let tituloProduto = tituloManual;
+        if (!tituloProduto || tituloProduto.trim() === '') {
+            tituloProduto = url.includes('mercadolivre') ? 'Achado Imperdível no Mercado Livre' : 'Achadinho Imperdível na Shopee';
         }
 
-        if (!precoProduto) {
+        // Blindagem de Preço: Garante que usa o preço enviado pela tela do painel e nunca zero
+        let precoProduto = precoEstimado;
+        if (!precoProduto || precoProduto === '' || precoProduto === '0' || precoProduto === '0.00') {
             precoProduto = '0.00';
         }
 
         const plataformaNome = plataforma || (url.includes('mercadolivre') ? 'Mercado Livre' : 'Shopee');
         const hashtagsDinamicas = `#achadinhos #${plataformaNome.toLowerCase().replace(/\s+/g, '')} #ofertas #achadosdodia #promocao #achados`;
 
-        // 2. Sistema de Rotação de 5 Estilos Dinâmicos
+        // === SISTEMA DE ROTAÇÃO DE 5 ESTILOS DINÂMICOS ===
         const modelosDeCopy = [
             `✨ Olha só o que acabou de aparecer por aqui! 
             
@@ -146,6 +117,7 @@ Quem vai querer aproveitar? Deixa eu saber nos comentários ou garante o seu dir
 ${hashtagsDinamicas}`
         ];
 
+        // Sorteia aleatoriamente um dos 5 modelos
         const indiceAleatorio = Math.floor(Math.random() * modelosDeCopy.length);
         const copyGerada = modelosDeCopy[indiceAleatorio];
 
