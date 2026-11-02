@@ -34,7 +34,7 @@ app.post('/api/processar-achadinho', async (req, res) => {
     let precoProduto = precoEstimado || '0.00';
     let linkFinal = link_afiliado || url;
 
-    // Resolvedor de links leve e nativo (segue o redirecionamento da Shopee/ML sem Puppeteer)
+    // Resolvedor de links leve e nativo (segue o redirecionamento sem Puppeteer)
     if (url && (url.includes('s.shopee.com.br') || url.includes('mercadolivre.com/sec'))) {
         try {
             const responseFetch = await fetch(url, { 
@@ -48,7 +48,6 @@ app.post('/api/processar-achadinho', async (req, res) => {
         }
     }
 
-    // Se o usuário digitou um título manualmente, prioriza ele
     if (tituloManual) tituloProduto = tituloManual;
 
     // Gera a Copy Comercial Profissional com a IA do Gemini
@@ -70,7 +69,7 @@ app.post('/api/processar-achadinho', async (req, res) => {
         Mantenha a linguagem leve, amigável e vendedora.`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: [
                 {
                     role: 'user',
