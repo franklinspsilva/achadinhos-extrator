@@ -1,3 +1,6 @@
 {
-  "version": 2
+  "version": 2,
+  "routes": [
+    { "src": "/api/processar-achadinho", "dest": "/api/processar-achadinho.js" }
+  ]
 }
