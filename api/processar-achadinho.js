@@ -127,7 +127,7 @@ ${hashtagsDinamicas}`
             copyPronta: copyGerada
         });
 
-    } chron (erroServer) {
+    } catch (erroServer) {
         return res.status(500).json({ error: `Erro interno: ${erroServer.message}` });
     }
 };
