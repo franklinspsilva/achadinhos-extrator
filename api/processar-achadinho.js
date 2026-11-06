@@ -118,7 +118,7 @@ Preço excelente por **R$ ${precoProduto}**! 🏷️
 Quem vai querer aproveitar? Deixa eu saber nos comentários ou garante o seu direto no link abaixo:
 👇 ${linkReal}
 
-${hashtagsDinomicas || hashtagsDinamicas}`
+${hashtagsDinamicas}`
         ];
 
         const copyGerada = modelosDeCopy[Math.floor(Math.random() * modelosDeCopy.length)];
@@ -133,7 +133,7 @@ ${hashtagsDinomicas || hashtagsDinamicas}`
             copyPronta: copyGerada
         });
 
-    } async (erroServer) {
+    } catch (erroServer) {
         return res.status(500).json({ error: `Erro interno: ${erroServer.message}` });
     }
-}; 
+};
