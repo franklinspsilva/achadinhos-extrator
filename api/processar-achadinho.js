@@ -1,5 +1,4 @@
 module.exports = async (req, res) => {
-    // Configuração completa de CORS para aceitar pedidos do painel da Fabi
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -24,16 +23,14 @@ module.exports = async (req, res) => {
         }
 
         let linkReal = url;
-        let tituloProduto = 'Achadinho Imperdível';
-        let precoProduto = '49.90';
-        let comissaoEstimada = '7.50';
+        let tituloProduto = '';
+        let precoProduto = '0.00';
         let plataforma = 'Shopee';
 
         if (url.includes('mercadolivre') || url.includes('mercadolito') || url.includes('mercadolivre.com')) {
             plataforma = 'Mercado Livre';
         }
 
-        // Resolução do link encurtado e metadados com User-Agent simulando telemóvel para evitar tela de login da Shopee
         try {
             const responseFetch = await fetch(url, { 
                 method: 'GET', 
@@ -50,21 +47,39 @@ module.exports = async (req, res) => {
             const responseMeta = await fetch(apiMicroLinkUrl);
             const dataMeta = await responseMeta.json();
 
-            if (dataMeta && dataMeta.status === 'success' && dataMeta.data && dataMeta.data.title) {
-                tituloProduto = dataMeta.data.title
-                    .replace(/\| Shopee Brasil/gi, '')
-                    .replace(/Mercado Livre/gi, '')
-                    .trim();
-            } else {
-                tituloProduto = plataforma === 'Shopee' ? 'Achado Incrível na Shopee' : 'Achado Imperdível no Mercado Livre';
+            if (dataMeta && dataMeta.status === 'success' && dataMeta.data) {
+                if (dataMeta.data.title) {
+                    tituloProduto = dataMeta.data.title
+                        .replace(/\| Shopee Brasil/gi, '')
+                        .replace(/Mercado Livre/gi, '')
+                        .replace(/[?&]utm_.*/gi, '')
+                        .trim();
+                }
+                // Tenta extrair preço se vier nas meta tags ou descrição
+                const desc = dataMeta.data.description || '';
+                const matchPreco = desc.match(/R\$\s*([\d.,]+)/) || dataMeta.data.text?.match(/R\$\s*([\d.,]+)/);
+                if (matchPreco && matchPreco[1]) {
+                    precoProduto = matchPreco[1].replace('.', '').replace(',', '.');
+                }
             }
         } catch (errRedir) {
             console.log('Aviso ao expandir link:', errRedir);
         }
 
+        // Fallbacks inteligentes se não capturar título/preço automáticos
+        if (!tituloProduto || tituloProduto.length < 5) {
+            tituloProduto = plataforma === 'Shopee' ? 'Achado Imperdível na Shopee' : 'Achado Imperdível no Mercado Livre';
+        }
+        if (precoProduto === '0.00') {
+            precoProduto = '49.90'; // Preço base estimado seguro
+        }
+
+        // Cálculo dinâmico de comissão estimada (ex: ~12% de comissão média de afiliado)
+        const valorNumerico = parseFloat(precoProduto) || 49.90;
+        const comissaoEstimada = (valorNumerico * 0.12).toFixed(2);
+
         const hashtagsDinamicas = `#achadinhos #${plataforma.toLowerCase().replace(/\s+/g, '')} #ofertas #achadosdodia #promocao #achados`;
 
-        // Sistema de rotação dos 5 estilos de Copy
         const modelosDeCopy = [
             `✨ Olha só o que acabou de aparecer por aqui! 
             
@@ -97,29 +112,6 @@ Corre que vale muito a pena:
 👇 Acesse e aproveite:
 ${linkReal}
 
-${hashtagsDinamicas}`,
-
-            `🤫 **Dica de ouro que eu achei para vocês!** 
-
-Gente, olha que achado maravilhoso esse **${tituloProduto}**! Encontrei escondido na ${plataforma} por um preço super especial. 🌟
-
-Super útil e com ótimo custo-benefício:
-💲 Apenas **R$ ${precoProduto}**
-
-Corre antes que acabe o estoque:
-🔗 ${linkReal}
-
-${hashtagsDinamicas}`,
-
-            `🤔 Quem aí estava à procura de um desses? 
-
-O **${tituloProduto}** apareceu com desconto na ${plataforma} e eu não podia deixar de trazer para vocês! 😱
-
-Preço excelente por **R$ ${precoProduto}**! 🏷️
-
-Quem vai querer aproveitar? Deixa eu saber nos comentários ou garante o seu direto no link abaixo:
-👇 ${linkReal}
-
 ${hashtagsDinamicas}`
         ];
 
@@ -135,7 +127,7 @@ ${hashtagsDinamicas}`
             copyPronta: copyGerada
         });
 
-    } catch (erroServer) {
+    } chron (erroServer) {
         return res.status(500).json({ error: `Erro interno: ${erroServer.message}` });
     }
 };
